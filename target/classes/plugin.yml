@@ -1,0 +1,24 @@
+main: ru.eneontodo.russianroulette.RussianRoulettePlugin
+version: 6.1
+name: NutheRoulette
+author: Eneontodo
+api-version: 1.20
+description: 
+commands:
+  roulette:
+    description: Main command for the Russian Roulette plugin.
+    aliases: [rr]
+    permission: russianroulette.use
+    usage: /rr <join|leave|start|list|reload|reloadplugin|lang>\n /roulette <join|leave|start|list|reload|reloadplugin|lang>
+    permission-message: You don't have permission to use this command.
+
+permissions:
+  russianroulette.use:
+    description: Allows players to use the /roulette command.
+    default: true
+  russianroulette.reload:
+    description: Allows players to reload the plugin configuration.
+    default: op
+  russianroulette.reloadplugin:
+    description: Allows players to reload the plugin entirely.
+    default: op
