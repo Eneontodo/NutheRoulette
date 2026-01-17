@@ -30,7 +30,7 @@ public class CommandHandler implements CommandExecutor, TabCompleter {
         LobbyManager lobbyManager = plugin.getLobbyManager();
 
         if (args.length == 0) {
-            player.sendMessage(ChatColor.YELLOW + "usage: /roulette <join|leave|start|list>");
+            player.sendMessage(ChatColor.YELLOW + "usage: /roulette <join|leave|start|list|lang>");
             return true;
         }
 
@@ -101,7 +101,7 @@ public class CommandHandler implements CommandExecutor, TabCompleter {
                 handleLangCommand(player, args);
                 return true;
             }
-            default -> player.sendMessage(ChatColor.RED + "Unknown subcommand. Use: join, leave, start, list.");
+            default -> player.sendMessage(ChatColor.RED + "Unknown subcommand. Use: join, leave, start, list, lang.");
         }
 
         return true;
