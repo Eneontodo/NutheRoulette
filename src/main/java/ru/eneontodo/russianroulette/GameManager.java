@@ -1,20 +1,17 @@
 package ru.eneontodo.russianroulette;
 
-import org.bukkit.ChatColor;
 import org.bukkit.entity.Player;
 import org.bukkit.scheduler.BukkitRunnable;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
 
 public class GameManager {
     private final RussianRoulettePlugin plugin;
-    private boolean isGameActive = false;
-    private List<Integer> bulletPositions = new ArrayList<>();
-    private int currentChamber = 0;
-    private int roundNumber = 1;
     private final Random random;
 
     public GameManager(RussianRoulettePlugin plugin) {
@@ -23,46 +20,56 @@ public class GameManager {
     }
 
     public void startGame(Lobby lobby) {
-        if (isGameActive) {
-            Player currentPlayer = lobby.getCurrentPlayer();
-            if (currentPlayer != null) {
-                currentPlayer.sendMessage(ChatColor.translateAlternateColorCodes('&', plugin.getConfigManager().getGameAlreadyActiveMessage())); // Notify current player
-            }
-            return;
+        int chamberSize = plugin.getConfigManager().getChamberSize();
+        int bulletCount = plugin.getConfigManager().getBulletCount();
+        lobby.setBulletPositions(generateBulletPositions(chamberSize, bulletCount));
+
+        LocalizationManager loc = plugin.getLocalizationManager();
+        Map<String, String> placeholders = new HashMap<>();
+        placeholders.put("%round%", String.valueOf(lobby.getRoundNumber()));
+        for (Player p : lobby.getPlayers()) {
+            p.sendMessage(loc.trp(p.getName(), "startGameMessage", placeholders));
         }
-        isGameActive = true;
-        currentChamber = 0;
-        roundNumber = 1;
-        bulletPositions = generateBulletPositions(plugin.getConfigManager().getChamberSize(), plugin.getConfigManager().getBulletCount()); // Generate bullet positions
-        List<Player> playersInLobby = lobby.getPlayers(); // Get players in the lobby
-        String startMessage = ChatColor.translateAlternateColorCodes('&', plugin.getConfigManager().getStartGameMessage()); // Prepare start message
-        for (Player p : playersInLobby) {
-            p.sendMessage(startMessage.replace("%round%", String.valueOf(roundNumber))); // Notify players of game start
-        }
-        new GameRunnable(lobby).runTaskTimer(plugin, 0L, plugin.getConfigManager().getRoundDelayTicks()); // Schedule game rounds
+
+        long delay = plugin.getConfigManager().getRoundDelayTicks();
+        new GameRunnable(lobby).runTaskTimer(plugin, delay, delay); // Schedule the rounds
     }
 
     public void resetGameForLobby(Lobby lobby) {
-        isGameActive = false;
-        bulletPositions.clear();
-        currentChamber = 0;
-        roundNumber = 1;
-        String endMessage = ChatColor.GOLD + "Game in lobby " + lobby.getId() + " has ended."; // Prepare end message
-        for (Player p : lobby.getPlayers()) {
-            p.sendMessage(endMessage); // Notify players of game end
-        }
+        lobby.resetGameState();
     }
 
-    private List<Integer> generateBulletPositions(int chamberSize, int bulletCount) { // Generate unique bullet positions
-        List<Integer> positions = new ArrayList<>(); // Store bullet positions
-        while (positions.size() < bulletCount) { // Until we have enough bullets
-            int pos = random.nextInt(chamberSize); // Random position
-            if (!positions.contains(pos)) { // Ensure uniqueness
-                positions.add(pos); // Add position
+    private List<Integer> generateBulletPositions(int chamberSize, int bulletCount) {
+        // Guard against invalid config that would otherwise cause an infinite loop
+        // (bulletCount > chamberSize) or an exception (chamberSize == 0).
+        if (chamberSize < 1) {
+            chamberSize = 1;
+        }
+        if (bulletCount < 1) {
+            bulletCount = 1;
+        }
+        if (bulletCount > chamberSize) {
+            bulletCount = chamberSize;
+        }
+        List<Integer> positions = new ArrayList<>();
+        while (positions.size() < bulletCount) {
+            int pos = random.nextInt(chamberSize);
+            if (!positions.contains(pos)) {
+                positions.add(pos);
             }
         }
         Collections.sort(positions);
         return positions;
+    }
+
+    private void announceWinner(Lobby lobby, Player winner) {
+        LocalizationManager loc = plugin.getLocalizationManager();
+        for (Player p : lobby.getPlayers()) {
+            String winnerName = (winner != null) ? winner.getName() : loc.tr(p.getName(), "noWinner");
+            Map<String, String> placeholders = new HashMap<>();
+            placeholders.put("%winner%", winnerName);
+            p.sendMessage(loc.trp(p.getName(), "gameEnded", placeholders));
+        }
     }
 
     private class GameRunnable extends BukkitRunnable {
@@ -74,53 +81,60 @@ public class GameManager {
 
         @Override
         public void run() {
-            if (!isGameActive || lobby.getPlayers().isEmpty()) { // Stop if game is not active or no players
+            if (!lobby.isGameStarted() || lobby.getPlayers().isEmpty()) {
+                cancel();
+                return;
+            }
+
+            // Winner check first: dead players are removed from the lobby in nextTurn(),
+            // so as soon as one (or zero) players remain, the game is over.
+            List<Player> remaining = lobby.getPlayers();
+            long aliveCount = remaining.stream()
+                    .filter(p -> p.isOnline() && p.getHealth() > 0.0)
+                    .count();
+            if (aliveCount <= 1) {
+                Player winner = remaining.stream()
+                        .filter(p -> p.isOnline() && p.getHealth() > 0.0)
+                        .findFirst().orElse(null);
+                announceWinner(lobby, winner);
+                resetGameForLobby(lobby);
                 cancel();
                 return;
             }
 
             Player currentPlayer = lobby.getCurrentPlayer();
-            if (currentPlayer == null || currentPlayer.getHealth() <= 0.0) {
+            if (currentPlayer == null || !currentPlayer.isOnline() || currentPlayer.getHealth() <= 0.0) {
                 lobby.nextTurn();
-                long aliveCount = lobby.getPlayers().stream().filter(p -> p.getHealth() > 0.0).count();
-                if (aliveCount <= 1) {
-                    Player winner = lobby.getPlayers().stream().filter(p -> p.getHealth() > 0.0).findFirst().orElse(null); // Determine winner
-                    String winMessage = ChatColor.GOLD + "Game ended! Winner: ";// Prepare win message
-                    winMessage += (winner != null) ? winner.getName() : "no one won.";// Append winner name or no one
-                    for (Player p : lobby.getPlayers()) {
-                        p.sendMessage(winMessage);
-                    }
-                    getGameManager().resetGameForLobby(lobby);
-                    cancel();
-                    return;
-                }
                 return;
             }
 
-            String spinMessage = ChatColor.translateAlternateColorCodes('&', plugin.getConfigManager().getSpinningDrumMessage());
-            currentPlayer.sendMessage(spinMessage.replace("%player%", currentPlayer.getName()));
+            LocalizationManager loc = plugin.getLocalizationManager();
+            int chamberSize = plugin.getConfigManager().getChamberSize();
+            lobby.setCurrentChamber((lobby.getCurrentChamber() + 1) % chamberSize);
 
-            currentChamber = (currentChamber + 1) % plugin.getConfigManager().getChamberSize();
-
-            if (bulletPositions.contains(currentChamber)) {
-                currentPlayer.setHealth(0.0);
-                String shotMessage = ChatColor.translateAlternateColorCodes('&', plugin.getConfigManager().getShotMessage());
-                currentPlayer.sendMessage(shotMessage);
-                for (Player p : lobby.getPlayers()) {
-                    if (p != currentPlayer) {
-                        p.sendMessage(ChatColor.GRAY + currentPlayer.getName() + " loss."); // Notify others of loss
-                    }
-                }
-            } else {
-                String safeMessage = ChatColor.translateAlternateColorCodes('&', plugin.getConfigManager().getSafeMessage()); // Safe message
-                currentPlayer.sendMessage(safeMessage);
+            Map<String, String> spinPlaceholders = new HashMap<>();
+            spinPlaceholders.put("%player%", currentPlayer.getName());
+            spinPlaceholders.put("%round%", String.valueOf(lobby.getRoundNumber()));
+            for (Player p : lobby.getPlayers()) {
+                p.sendMessage(loc.trp(p.getName(), "spinningDrumMessage", spinPlaceholders));
             }
 
-            lobby.nextTurn();
-        }
+            if (lobby.getBulletPositions().contains(lobby.getCurrentChamber())) {
+                currentPlayer.sendMessage(loc.tr(currentPlayer.getName(), "shotMessage"));
+                Map<String, String> lostPlaceholders = new HashMap<>();
+                lostPlaceholders.put("%player%", currentPlayer.getName());
+                for (Player p : lobby.getPlayers()) {
+                    if (!p.equals(currentPlayer)) {
+                        p.sendMessage(loc.trp(p.getName(), "playerLost", lostPlaceholders));
+                    }
+                }
+                currentPlayer.setHealth(0.0);
+            } else {
+                currentPlayer.sendMessage(loc.tr(currentPlayer.getName(), "safeMessage"));
+            }
 
-        private GameManager getGameManager() {
-            return plugin.getGameManager();
+            lobby.incrementRound();
+            lobby.nextTurn();
         }
     }
 }

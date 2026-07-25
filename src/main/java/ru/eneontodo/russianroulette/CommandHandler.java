@@ -1,6 +1,5 @@
 package ru.eneontodo.russianroulette;
 
-import org.bukkit.ChatColor;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
@@ -9,7 +8,9 @@ import org.bukkit.entity.Player;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 public class CommandHandler implements CommandExecutor, TabCompleter {
@@ -22,125 +23,168 @@ public class CommandHandler implements CommandExecutor, TabCompleter {
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
         if (!(sender instanceof Player)) { // Ensure only players can execute commands
-            sender.sendMessage("This command can only be executed by the player.");
+            sender.sendMessage("This command can only be executed by a player.");
             return true;
         }
 
         Player player = (Player) sender;
         LobbyManager lobbyManager = plugin.getLobbyManager();
+        LocalizationManager loc = plugin.getLocalizationManager();
+        String name = player.getName();
 
         if (args.length == 0) {
-            player.sendMessage(ChatColor.YELLOW + "usage: /roulette <join|leave|start|list|lang>");
+            player.sendMessage(loc.tr(name, "usage"));
             return true;
         }
 
         String subCommand = args[0].toLowerCase();
 
-        // TODO: add lang command
-
         switch (subCommand) {
             case "join" -> { // Join an available lobby
                 Lobby currentLobby = lobbyManager.getLobbyByPlayer(player);
                 if (currentLobby != null) {
-                    player.sendMessage(ChatColor.RED + "You are already in the lobby #" + currentLobby.getId() + ".");
-                    return true;    
+                    Map<String, String> placeholders = new HashMap<>();
+                    placeholders.put("%id%", String.valueOf(currentLobby.getId()));
+                    player.sendMessage(loc.trp(name, "alreadyInLobby", placeholders));
+                    return true;
                 }
-                Lobby availableLobby = lobbyManager.findAvailableLobby(); // Find or create a lobby with available slots
+                Lobby availableLobby = lobbyManager.findAvailableLobby();
                 if (availableLobby.addPlayer(player)) {
-                    player.sendMessage(ChatColor.GREEN + "You have entered the lobby #" + availableLobby.getId() + ". Places remaining:" + availableLobby.getAvailableSlots());
-                    for (Player p : availableLobby.getPlayers()) { // Notify other players in the lobby
-                        if (p != player) {
-                            p.sendMessage(ChatColor.GRAY + player.getName() + " joined the lobby.");
+                    Map<String, String> selfPlaceholders = new HashMap<>();
+                    selfPlaceholders.put("%id%", String.valueOf(availableLobby.getId()));
+                    selfPlaceholders.put("%slots%", String.valueOf(availableLobby.getAvailableSlots()));
+                    player.sendMessage(loc.trp(name, "lobbyJoinedSelf", selfPlaceholders));
+
+                    Map<String, String> broadcast = new HashMap<>();
+                    broadcast.put("%player%", name);
+                    broadcast.put("%slots%", String.valueOf(availableLobby.getAvailableSlots()));
+                    for (Player p : availableLobby.getPlayers()) {
+                        if (!p.equals(player)) {
+                            p.sendMessage(loc.trp(p.getName(), "playerJoinedLobby", broadcast));
                         }
                     }
                 } else {
-                    player.sendMessage(ChatColor.RED + "Failed to enter the lobby.");
+                    player.sendMessage(loc.tr(name, "failedToJoin"));
                 }
             }
 
             case "leave" -> { // Leave the player's current lobby
                 Lobby playerLobby = lobbyManager.getLobbyByPlayer(player);
                 if (playerLobby == null) {
-                    player.sendMessage(ChatColor.translateAlternateColorCodes('&', plugin.getConfigManager().getNoLobbyMessage()));
+                    player.sendMessage(loc.tr(name, "noLobbyMessage"));
                     return true;
                 }
+                int lobbyId = playerLobby.getId();
                 lobbyManager.removePlayerFromLobby(player);
-                player.sendMessage(ChatColor.GREEN + "You have left the lobby #" + playerLobby.getId() + ".");
+
+                Map<String, String> selfPlaceholders = new HashMap<>();
+                selfPlaceholders.put("%id%", String.valueOf(lobbyId));
+                player.sendMessage(loc.trp(name, "lobbyLeftSelf", selfPlaceholders));
+
+                Map<String, String> broadcast = new HashMap<>();
+                broadcast.put("%player%", name);
                 for (Player p : playerLobby.getPlayers()) {
-                    p.sendMessage(ChatColor.GRAY + player.getName() + "left the lobby.");
+                    p.sendMessage(loc.trp(p.getName(), "playerLeftLobby", broadcast));
                 }
             }
 
             case "start" -> { // Start the game in the player's lobby
                 Lobby lobbyToStart = lobbyManager.getLobbyByPlayer(player);
                 if (lobbyToStart == null) {
-                    player.sendMessage(ChatColor.translateAlternateColorCodes('&', plugin.getConfigManager().getNoLobbyMessage()));
+                    player.sendMessage(loc.tr(name, "noLobbyMessage"));
                     return true;
                 }
-                if (!lobbyToStart.getPlayers().get(0).equals(player)) {
-                    player.sendMessage(ChatColor.RED + "Only the lobby leader can start the game.");
+                if (lobbyToStart.isGameStarted()) {
+                    player.sendMessage(loc.tr(name, "gameAlreadyActiveMessage"));
                     return true;
                 }
-                if (lobbyToStart.getPlayers().size() < 1) {
-                    player.sendMessage(ChatColor.RED + "Not enough players to start the game.");
+                if (lobbyToStart.getPlayers().isEmpty() || !lobbyToStart.getPlayers().get(0).equals(player)) {
+                    player.sendMessage(loc.tr(name, "leaderOnlyStart"));
+                    return true;
+                }
+                if (lobbyToStart.getPlayers().size() < 2) {
+                    player.sendMessage(loc.tr(name, "notEnoughPlayers"));
                     return true;
                 }
                 lobbyToStart.startGame();
             }
 
             case "list" -> { // List all active lobbies
-                List<Lobby> allLobbies = lobbyManager.getLobbies();
-                player.sendMessage(ChatColor.YELLOW + "=== List of active lobbies ===");
-                for (Lobby l : allLobbies) {
-                    player.sendMessage(ChatColor.YELLOW + "ID: " + l.getId() +
-                            ", Players: " + l.getPlayers().size() + "/" + plugin.getConfigManager().getMaxPlayers() +
-                            ", Game: " + (l.isGameStarted() ? "Yes" : "No"));
+                player.sendMessage(loc.tr(name, "lobbyListHeader"));
+                for (Lobby l : lobbyManager.getLobbies()) {
+                    Map<String, String> placeholders = new HashMap<>();
+                    placeholders.put("%id%", String.valueOf(l.getId()));
+                    placeholders.put("%count%", String.valueOf(l.getPlayers().size()));
+                    placeholders.put("%max%", String.valueOf(l.getMaxPlayers()));
+                    placeholders.put("%status%", loc.tr(name, l.isGameStarted() ? "gameStatusActive" : "gameStatusWaiting"));
+                    player.sendMessage(loc.trp(name, "lobbyInfo", placeholders));
                 }
             }
-            case "lang"-> { // Language command
-                handleLangCommand(player, args);
-                return true;
+
+            case "reload" -> { // Reload config and locale files
+                if (!player.hasPermission("russianroulette.reload")) {
+                    player.sendMessage(loc.tr(name, "noPermission"));
+                    return true;
+                }
+                plugin.getConfigManager().reload();
+                plugin.getLocalizationManager().reload();
+                player.sendMessage(loc.tr(name, "configReloaded"));
             }
-            default -> player.sendMessage(ChatColor.RED + "Unknown subcommand. Use: join, leave, start, list, lang.");
+
+            case "lang" -> { // Language command (admin-only)
+                if (!player.hasPermission("russianroulette.lang")) {
+                    player.sendMessage(loc.tr(name, "noPermission"));
+                    return true;
+                }
+                handleLangCommand(player, args);
+            }
+
+            default -> player.sendMessage(loc.tr(name, "unknownSubcommand"));
         }
 
         return true;
     }
 
-    private void handleLangCommand(Player player, String[] args) { 
-    if (args.length < 2) {
-        player.sendMessage(ChatColor.GOLD + "Available languages: /roulette lang ru — Russian, /roulette lang en — English");
-        return;
-    }
+    private void handleLangCommand(Player player, String[] args) {
+        LocalizationManager loc = plugin.getLocalizationManager();
+        String name = player.getName();
 
-    String langKey = args[1].toLowerCase();
-    LocalizationManager loc = plugin.getLocalizationManager();
+        if (args.length < 2) {
+            player.sendMessage(loc.tr(name, "availableLanguages"));
+            return;
+        }
 
-    if (langKey.equals("ru")) {
-        loc.setPlayerLanguage(player.getName(), "ru_RU");
-        player.sendMessage(ChatColor.translateAlternateColorCodes('&', "&aLanguage changed to Russian!"));
-    } else if (langKey.equals("en")) {
-        loc.setPlayerLanguage(player.getName(), "en_US");
-        player.sendMessage(ChatColor.translateAlternateColorCodes('&', "&aLanguage changed to English!"));
-    } else {
-        player.sendMessage(ChatColor.GOLD + "Available languages: /roulette lang ru — Russian, /roulette lang en — English");
-        return;
+        String langKey = args[1].toLowerCase();
+        if (langKey.equals("ru")) {
+            loc.setPlayerLanguage(name, "ru_RU");
+            player.sendMessage(loc.tr(name, "languageChanged"));
+        } else if (langKey.equals("en")) {
+            loc.setPlayerLanguage(name, "en_US");
+            player.sendMessage(loc.tr(name, "languageChanged"));
+        } else {
+            player.sendMessage(loc.tr(name, "availableLanguages"));
+        }
     }
-}
 
     @Override
-    public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) { 
+    public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
         if (args.length == 1) {
-            List<String> completions = Arrays.asList("join", "leave", "start", "list", "lang");
-            return completions.stream()
+            List<String> options = new ArrayList<>(Arrays.asList("join", "leave", "start", "list"));
+            if (sender.hasPermission("russianroulette.lang")) {
+                options.add("lang");
+            }
+            if (sender.hasPermission("russianroulette.reload")) {
+                options.add("reload");
+            }
+            return options.stream()
                     .filter(s -> s.startsWith(args[0].toLowerCase()))
                     .collect(Collectors.toList());
         }
-        if (args.length == 2 && "lang".equalsIgnoreCase(args[0])) {
+        if (args.length == 2 && "lang".equalsIgnoreCase(args[0]) && sender.hasPermission("russianroulette.lang")) {
             return Arrays.asList("ru", "en").stream()
                     .filter(lang -> lang.startsWith(args[1].toLowerCase()))
                     .collect(Collectors.toList());
-        }   
+        }
         return new ArrayList<>();
     }
 }

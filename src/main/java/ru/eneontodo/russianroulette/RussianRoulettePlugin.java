@@ -19,8 +19,15 @@ public class RussianRoulettePlugin extends JavaPlugin {
         this.lobbyManager = new LobbyManager(this);
         this.gameManager = new GameManager(this);
 
-        getCommand("roulette").setExecutor(new CommandHandler(this));// Main command
-        getCommand("roulette").setTabCompleter(new CommandHandler(this));
+        if (getCommand("roulette") != null) {
+            CommandHandler handler = new CommandHandler(this); // Single instance for executor + tab completer
+            getCommand("roulette").setExecutor(handler);
+            getCommand("roulette").setTabCompleter(handler);
+        } else {
+            getLogger().warning("Command 'roulette' is not defined in plugin.yml!");
+        }
+
+        getServer().getPluginManager().registerEvents(new PlayerListener(this), this); // Clean up on disconnect
     }
 
     @Override
@@ -31,6 +38,7 @@ public class RussianRoulettePlugin extends JavaPlugin {
     public LocalizationManager getLocalizationManager() {
         return localizationManager;
     }
+
     public ConfigManager getConfigManager() {
         return configManager;
     }
