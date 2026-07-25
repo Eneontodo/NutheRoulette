@@ -33,7 +33,7 @@ public class CommandHandler implements CommandExecutor, TabCompleter {
         String name = player.getName();
 
         if (args.length == 0) {
-            player.sendMessage(loc.tr(name, "usage"));
+            player.sendMessage(loc.tr("usage"));
             return true;
         }
 
@@ -45,7 +45,7 @@ public class CommandHandler implements CommandExecutor, TabCompleter {
                 if (currentLobby != null) {
                     Map<String, String> placeholders = new HashMap<>();
                     placeholders.put("%id%", String.valueOf(currentLobby.getId()));
-                    player.sendMessage(loc.trp(name, "alreadyInLobby", placeholders));
+                    player.sendMessage(loc.trp("alreadyInLobby", placeholders));
                     return true;
                 }
                 Lobby availableLobby = lobbyManager.findAvailableLobby();
@@ -53,25 +53,25 @@ public class CommandHandler implements CommandExecutor, TabCompleter {
                     Map<String, String> selfPlaceholders = new HashMap<>();
                     selfPlaceholders.put("%id%", String.valueOf(availableLobby.getId()));
                     selfPlaceholders.put("%slots%", String.valueOf(availableLobby.getAvailableSlots()));
-                    player.sendMessage(loc.trp(name, "lobbyJoinedSelf", selfPlaceholders));
+                    player.sendMessage(loc.trp("lobbyJoinedSelf", selfPlaceholders));
 
                     Map<String, String> broadcast = new HashMap<>();
                     broadcast.put("%player%", name);
                     broadcast.put("%slots%", String.valueOf(availableLobby.getAvailableSlots()));
                     for (Player p : availableLobby.getPlayers()) {
                         if (!p.equals(player)) {
-                            p.sendMessage(loc.trp(p.getName(), "playerJoinedLobby", broadcast));
+                            p.sendMessage(loc.trp("playerJoinedLobby", broadcast));
                         }
                     }
                 } else {
-                    player.sendMessage(loc.tr(name, "failedToJoin"));
+                    player.sendMessage(loc.tr("failedToJoin"));
                 }
             }
 
             case "leave" -> { // Leave the player's current lobby
                 Lobby playerLobby = lobbyManager.getLobbyByPlayer(player);
                 if (playerLobby == null) {
-                    player.sendMessage(loc.tr(name, "noLobbyMessage"));
+                    player.sendMessage(loc.tr("noLobbyMessage"));
                     return true;
                 }
                 int lobbyId = playerLobby.getId();
@@ -79,67 +79,67 @@ public class CommandHandler implements CommandExecutor, TabCompleter {
 
                 Map<String, String> selfPlaceholders = new HashMap<>();
                 selfPlaceholders.put("%id%", String.valueOf(lobbyId));
-                player.sendMessage(loc.trp(name, "lobbyLeftSelf", selfPlaceholders));
+                player.sendMessage(loc.trp("lobbyLeftSelf", selfPlaceholders));
 
                 Map<String, String> broadcast = new HashMap<>();
                 broadcast.put("%player%", name);
                 for (Player p : playerLobby.getPlayers()) {
-                    p.sendMessage(loc.trp(p.getName(), "playerLeftLobby", broadcast));
+                    p.sendMessage(loc.trp("playerLeftLobby", broadcast));
                 }
             }
 
             case "start" -> { // Start the game in the player's lobby
                 Lobby lobbyToStart = lobbyManager.getLobbyByPlayer(player);
                 if (lobbyToStart == null) {
-                    player.sendMessage(loc.tr(name, "noLobbyMessage"));
+                    player.sendMessage(loc.tr("noLobbyMessage"));
                     return true;
                 }
                 if (lobbyToStart.isGameStarted()) {
-                    player.sendMessage(loc.tr(name, "gameAlreadyActiveMessage"));
+                    player.sendMessage(loc.tr("gameAlreadyActiveMessage"));
                     return true;
                 }
                 if (lobbyToStart.getPlayers().isEmpty() || !lobbyToStart.getPlayers().get(0).equals(player)) {
-                    player.sendMessage(loc.tr(name, "leaderOnlyStart"));
+                    player.sendMessage(loc.tr("leaderOnlyStart"));
                     return true;
                 }
                 if (lobbyToStart.getPlayers().size() < 2) {
-                    player.sendMessage(loc.tr(name, "notEnoughPlayers"));
+                    player.sendMessage(loc.tr("notEnoughPlayers"));
                     return true;
                 }
                 lobbyToStart.startGame();
             }
 
             case "list" -> { // List all active lobbies
-                player.sendMessage(loc.tr(name, "lobbyListHeader"));
+                player.sendMessage(loc.tr("lobbyListHeader"));
                 for (Lobby l : lobbyManager.getLobbies()) {
                     Map<String, String> placeholders = new HashMap<>();
                     placeholders.put("%id%", String.valueOf(l.getId()));
                     placeholders.put("%count%", String.valueOf(l.getPlayers().size()));
                     placeholders.put("%max%", String.valueOf(l.getMaxPlayers()));
-                    placeholders.put("%status%", loc.tr(name, l.isGameStarted() ? "gameStatusActive" : "gameStatusWaiting"));
-                    player.sendMessage(loc.trp(name, "lobbyInfo", placeholders));
+                    placeholders.put("%status%", loc.tr(l.isGameStarted() ? "gameStatusActive" : "gameStatusWaiting"));
+                    player.sendMessage(loc.trp("lobbyInfo", placeholders));
                 }
             }
 
             case "reload" -> { // Reload config and locale files
                 if (!player.hasPermission("russianroulette.reload")) {
-                    player.sendMessage(loc.tr(name, "noPermission"));
+                    player.sendMessage(loc.tr("noPermission"));
                     return true;
                 }
                 plugin.getConfigManager().reload();
                 plugin.getLocalizationManager().reload();
-                player.sendMessage(loc.tr(name, "configReloaded"));
+                player.sendMessage(loc.tr("configReloaded"));
             }
 
             case "lang" -> { // Language command (admin-only)
                 if (!player.hasPermission("russianroulette.lang")) {
-                    player.sendMessage(loc.tr(name, "noPermission"));
+                    player.sendMessage(loc.tr("noPermission"));
                     return true;
                 }
                 handleLangCommand(player, args);
             }
 
-            default -> player.sendMessage(loc.tr(name, "unknownSubcommand"));
+            default -> player.sendMessage(loc.tr("unknownSubcommand"));
         }
 
         return true;
@@ -147,22 +147,18 @@ public class CommandHandler implements CommandExecutor, TabCompleter {
 
     private void handleLangCommand(Player player, String[] args) {
         LocalizationManager loc = plugin.getLocalizationManager();
-        String name = player.getName();
 
         if (args.length < 2) {
-            player.sendMessage(loc.tr(name, "availableLanguages"));
+            player.sendMessage(loc.tr("availableLanguages"));
             return;
         }
 
         String langKey = args[1].toLowerCase();
-        if (langKey.equals("ru")) {
-            loc.setPlayerLanguage(name, "ru_RU");
-            player.sendMessage(loc.tr(name, "languageChanged"));
-        } else if (langKey.equals("en")) {
-            loc.setPlayerLanguage(name, "en_US");
-            player.sendMessage(loc.tr(name, "languageChanged"));
+        if (langKey.equals("ru") || langKey.equals("en")) {
+            loc.setLanguage(langKey.equals("ru") ? "ru_RU" : "en_US"); // Server-wide language
+            player.sendMessage(loc.tr("languageChanged"));
         } else {
-            player.sendMessage(loc.tr(name, "availableLanguages"));
+            player.sendMessage(loc.tr("availableLanguages"));
         }
     }
 

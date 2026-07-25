@@ -174,12 +174,12 @@ public class Lobby {
             return;
         }
         LocalizationManager loc = plugin.getLocalizationManager();
-        player.sendMessage(loc.tr(player.getName(), "yourTurnMessage"));
+        player.sendMessage(loc.tr("yourTurnMessage"));
         Map<String, String> placeholders = new HashMap<>();
         placeholders.put("%player%", player.getName());
         for (Player p : players) {
             if (!p.equals(player)) {
-                p.sendMessage(loc.trp(p.getName(), "otherPlayerTurn", placeholders));
+                p.sendMessage(loc.trp("otherPlayerTurn", placeholders));
             }
         }
     }

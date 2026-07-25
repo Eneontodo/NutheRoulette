@@ -28,7 +28,7 @@ public class GameManager {
         Map<String, String> placeholders = new HashMap<>();
         placeholders.put("%round%", String.valueOf(lobby.getRoundNumber()));
         for (Player p : lobby.getPlayers()) {
-            p.sendMessage(loc.trp(p.getName(), "startGameMessage", placeholders));
+            p.sendMessage(loc.trp("startGameMessage", placeholders));
         }
 
         long delay = plugin.getConfigManager().getRoundDelayTicks();
@@ -65,10 +65,10 @@ public class GameManager {
     private void announceWinner(Lobby lobby, Player winner) {
         LocalizationManager loc = plugin.getLocalizationManager();
         for (Player p : lobby.getPlayers()) {
-            String winnerName = (winner != null) ? winner.getName() : loc.tr(p.getName(), "noWinner");
+            String winnerName = (winner != null) ? winner.getName() : loc.tr("noWinner");
             Map<String, String> placeholders = new HashMap<>();
             placeholders.put("%winner%", winnerName);
-            p.sendMessage(loc.trp(p.getName(), "gameEnded", placeholders));
+            p.sendMessage(loc.trp("gameEnded", placeholders));
         }
     }
 
@@ -116,21 +116,21 @@ public class GameManager {
             spinPlaceholders.put("%player%", currentPlayer.getName());
             spinPlaceholders.put("%round%", String.valueOf(lobby.getRoundNumber()));
             for (Player p : lobby.getPlayers()) {
-                p.sendMessage(loc.trp(p.getName(), "spinningDrumMessage", spinPlaceholders));
+                p.sendMessage(loc.trp("spinningDrumMessage", spinPlaceholders));
             }
 
             if (lobby.getBulletPositions().contains(lobby.getCurrentChamber())) {
-                currentPlayer.sendMessage(loc.tr(currentPlayer.getName(), "shotMessage"));
+                currentPlayer.sendMessage(loc.tr("shotMessage"));
                 Map<String, String> lostPlaceholders = new HashMap<>();
                 lostPlaceholders.put("%player%", currentPlayer.getName());
                 for (Player p : lobby.getPlayers()) {
                     if (!p.equals(currentPlayer)) {
-                        p.sendMessage(loc.trp(p.getName(), "playerLost", lostPlaceholders));
+                        p.sendMessage(loc.trp("playerLost", lostPlaceholders));
                     }
                 }
                 currentPlayer.setHealth(0.0);
             } else {
-                currentPlayer.sendMessage(loc.tr(currentPlayer.getName(), "safeMessage"));
+                currentPlayer.sendMessage(loc.tr("safeMessage"));
             }
 
             lobby.incrementRound();

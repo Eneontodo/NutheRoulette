@@ -1,6 +1,7 @@
 # NutheRoulette — настройки геймплея.
 # Все тексты сообщений находятся в папке locale/ (messages_ru.yml, messages_en.yml).
 
+language: ru_RU        # Язык сообщений сервера: ru_RU или en_US (можно менять командой /roulette lang)
 chamberSize: 6         # Количество камор в барабане (>= 1)
 bulletCount: 1         # Количество патронов (автоматически ограничивается диапазоном 1..chamberSize)
 maxPlayers: 4          # Максимум игроков в лобби (>= 2)

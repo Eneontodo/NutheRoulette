@@ -13,6 +13,7 @@ public class ConfigManager {
 
     private void setupDefaults() {
         this.config = plugin.getConfig();
+        config.addDefault("language", "ru_RU");
         config.addDefault("chamberSize", 6);
         config.addDefault("bulletCount", 1);
         config.addDefault("maxPlayers", 4);

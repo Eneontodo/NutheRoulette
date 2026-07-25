@@ -10,9 +10,11 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class LocalizationManager {
+    private static final String DEFAULT_LANGUAGE = "ru_RU";
+
     private final JavaPlugin plugin;
     private final Map<String, FileConfiguration> messages = new HashMap<>();
-    private final Map<String, String> playerLanguages = new HashMap<>();
+    private String language = DEFAULT_LANGUAGE; // Single server-wide language
 
     public LocalizationManager(JavaPlugin plugin) {
         this.plugin = plugin;
@@ -24,6 +26,7 @@ public class LocalizationManager {
         messages.clear();
         loadMessages("ru_RU", "locale/messages_ru.yml"); // Russian
         loadMessages("en_US", "locale/messages_en.yml"); // English
+        this.language = normalize(plugin.getConfig().getString("language", DEFAULT_LANGUAGE));
     }
 
     private void loadMessages(String key, String fileName) {
@@ -34,10 +37,37 @@ public class LocalizationManager {
         messages.put(key, YamlConfiguration.loadConfiguration(file));
     }
 
-    public String get(String lang, String key) {
-        FileConfiguration config = messages.get(lang);
+    // Accept "ru", "en", "ru_RU", "en_US" (any case); fall back to the default.
+    private String normalize(String lang) {
+        if (lang == null) {
+            return DEFAULT_LANGUAGE;
+        }
+        switch (lang.toLowerCase()) {
+            case "ru":
+            case "ru_ru":
+                return "ru_RU";
+            case "en":
+            case "en_us":
+                return "en_US";
+            default:
+                return messages.containsKey(lang) ? lang : DEFAULT_LANGUAGE;
+        }
+    }
+
+    public String getLanguage() {
+        return language;
+    }
+
+    public void setLanguage(String lang) {
+        this.language = normalize(lang);
+        plugin.getConfig().set("language", this.language);
+        plugin.saveConfig(); // Persist so the choice survives restarts
+    }
+
+    public String get(String key) {
+        FileConfiguration config = messages.get(language);
         if (config == null) {
-            config = messages.get("ru_RU"); // Default to Russian
+            config = messages.get(DEFAULT_LANGUAGE);
         }
         if (config == null) {
             return "&c[No translation: " + key + "]";
@@ -45,27 +75,15 @@ public class LocalizationManager {
         return config.getString(key, "&c[No translation: " + key + "]");
     }
 
-    public String formatWithPlaceholders(String lang, String key, Map<String, String> placeholders) {
-        String message = get(lang, key);
+    public String tr(String key) {
+        return ChatColor.translateAlternateColorCodes('&', get(key));
+    }
+
+    public String trp(String key, Map<String, String> placeholders) {
+        String message = get(key);
         for (Map.Entry<String, String> entry : placeholders.entrySet()) {
             message = message.replace(entry.getKey(), entry.getValue());
         }
         return ChatColor.translateAlternateColorCodes('&', message);
-    }
-
-    public void setPlayerLanguage(String playerName, String lang) {
-        playerLanguages.put(playerName, lang);
-    }
-
-    public String getPlayerLanguage(String playerName) {
-        return playerLanguages.getOrDefault(playerName, "ru_RU");
-    }
-
-    public String tr(String playerName, String key) {
-        return formatWithPlaceholders(getPlayerLanguage(playerName), key, new HashMap<>());
-    }
-
-    public String trp(String playerName, String key, Map<String, String> placeholders) {
-        return formatWithPlaceholders(getPlayerLanguage(playerName), key, placeholders);
     }
 }
