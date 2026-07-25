@@ -1,3 +1,4 @@
+[English version](Changelog_en.md)
 ## [6.2] — Исправление багов
 
 ### Критические
