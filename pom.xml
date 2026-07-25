@@ -9,7 +9,6 @@
     <version>6.2</version>
     
     <name>NutheRoulette</name>
-    <url>http://www.example.com</url>
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
